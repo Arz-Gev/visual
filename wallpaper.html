@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ASCII Wallpaper</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+    #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    pre { margin: 0; font: 12px/1 Menlo, Consolas, monospace; color: #e4e4e7; white-space: pre; }
+    canvas { flex: none; max-width: none !important; }
+  </style>
+</head>
+<body>
+  <div id="stage"><pre></pre></div>
+  <script type="module">
+    // Query: piece, look, speed, fit (cover | contain), still, dpr
+    import { play } from "./ascii-magic-art/runtime/player.js";
+    import { CELL_W, cellAspect } from "./ascii-magic-art/runtime/canvas.js";
+
+    const q = new URLSearchParams(location.search);
+    const slug = (q.get("piece") || "moonlit-sea").replace(/[^a-z0-9-]/g, "");
+    const pre = document.querySelector("pre");
+    // The player draws at devicePixelRatio (max 2); a full-screen canvas at 2x costs a lot of CPU.
+    if (q.get("dpr")) Object.defineProperty(window, "devicePixelRatio", { get: () => +q.get("dpr") });
+
+    try {
+      const mod = await import(`./ascii-magic-art/pieces/${slug}.js`);
+      const { cols, rows } = mod.meta, aspect = cellAspect(mod.meta);
+      const cover = q.get("fit") !== "contain";
+      const fit = () => {
+        const sx = innerWidth / (cols * CELL_W), sy = innerHeight / (rows * CELL_W * aspect);
+        pre.style.fontSize = (cover ? Math.max(sx, sy) : Math.min(sx, sy)) + "px";
+      };
+      fit();
+      addEventListener("resize", fit);
+      play(pre, mod, {
+        speed: parseFloat(q.get("speed")) || 1,
+        still: q.has("still"),
+        look: { look: q.get("look") || undefined },
+      });
+    } catch (e) {
+      pre.textContent = `no piece "${slug}"`;
+    }
+  </script>
+</body>
+</html>
